@@ -36,18 +36,23 @@ export default function BillingPortal() {
         })
       });
 
+      const payload = (await response.json().catch(() => null)) as
+        | { url?: string; error?: string }
+        | null;
+
       if (!response.ok) {
-        throw new Error(`Stripe 会话创建失败: ${response.status}`);
+        throw new Error(payload?.error ?? `Stripe 会话创建失败: ${response.status}`);
       }
 
-      const payload: { url?: string; error?: string } = await response.json();
-      if (payload.error) {
+      if (payload?.error) {
         throw new Error(payload.error);
       }
 
-      if (payload.url) {
-        window.location.href = payload.url;
+      if (!payload?.url) {
+        throw new Error('Stripe 未返回重定向地址。');
       }
+
+      window.location.href = payload.url;
     } catch (err) {
       console.error(err);
       setError((err as Error).message ?? '支付流程启动失败');

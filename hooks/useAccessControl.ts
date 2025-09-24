@@ -64,9 +64,15 @@ export function useAccessControl() {
   const environmentId = process.env.NEXT_PUBLIC_DYNAMIC_ENV_ID;
   const hasDynamicProvider = Boolean(environmentId && dynamicContext);
 
-  const isAuthenticated = Boolean(hasDynamicProvider && dynamicContext?.isAuthenticated && dynamicContext?.user);
   const user = dynamicContext?.user ?? null;
-  const walletAddress = isAuthenticated ? resolveWalletAddress(dynamicContext ?? {}) : undefined;
+  const resolvedWallet = dynamicContext ? resolveWalletAddress(dynamicContext) : undefined;
+  const hasUserProfile = Boolean(user);
+  const hasWalletConnection = Boolean(resolvedWallet);
+
+  const isAuthenticated = Boolean(
+    hasDynamicProvider && (dynamicContext?.isAuthenticated ?? (hasUserProfile || hasWalletConnection))
+  );
+  const walletAddress = isAuthenticated ? resolvedWallet : undefined;
 
   const [subscriptionTier, setSubscriptionTier] = useState<AccessLevel>('member');
   const [loading, setLoading] = useState(false);
