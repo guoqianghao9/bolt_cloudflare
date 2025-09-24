@@ -3,7 +3,8 @@ import sampleTokens from '@/config/sample-alpha-tokens.json';
 const BINANCE_ALPHA_URL =
   'https://www.binance.com/bapi/defi/v1/public/wallet-direct/buw/wallet/cex/alpha/all/token/list';
 
-const THIRTY_DAYS_IN_MS = 30 * 24 * 60 * 60 * 1000;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const THIRTY_DAYS_IN_MS = 30 * DAY_IN_MS;
 
 export interface ProcessedToken {
   symbol: string;
@@ -23,18 +24,39 @@ interface RawToken {
   symbol?: string;
   name?: string;
   listingTime?: number;
-  price?: string;
-  priceHigh24h?: string;
-  priceLow24h?: string;
-  volume24h?: string;
-  count24h?: string;
-  percentChange24h?: string;
+  price?: string | number;
+  priceHigh24h?: string | number;
+  priceLow24h?: string | number;
+  volume24h?: string | number;
+  count24h?: string | number;
+  percentChange24h?: string | number;
 }
 
 interface BinanceResponse {
   code: string;
   message?: string;
-  data?: RawToken[];
+  messageDetail?: string;
+  data?: unknown;
+}
+
+function extractTokens(input: unknown): RawToken[] {
+  if (Array.isArray(input)) {
+    return input as RawToken[];
+  }
+
+  if (input && typeof input === 'object') {
+    const container = input as Record<string, unknown>;
+    const candidateKeys = ['list', 'tokenList', 'tokens', 'rows', 'data'];
+
+    for (const key of candidateKeys) {
+      const value = container[key];
+      if (Array.isArray(value)) {
+        return value as RawToken[];
+      }
+    }
+  }
+
+  return [];
 }
 
 function parseNumber(value: unknown, fallback = 0): number {
@@ -51,10 +73,6 @@ function calculateVolatility(high: number, low: number): number {
   if (low <= 0) return 0;
   return Math.abs(high / low - 1) * 100;
 }
-
-type IntermediateToken = {
-  listingTime: number;
-} & ProcessedToken;
 
 type SampleToken = Omit<ProcessedToken, 'daysSinceListing'> & {
   daysSinceListing?: number;
@@ -99,36 +117,46 @@ export async function fetchAlphaTokens(): Promise<FetchAlphaTokensResult> {
     }
 
     const payload = (await response.json()) as BinanceResponse;
-    if (payload.code !== '000000' || !payload.data?.length) {
-      throw new Error('Binance API 返回异常数据');
+    if (payload.code !== '000000') {
+      throw new Error(payload.messageDetail ?? payload.message ?? 'Binance API 返回异常数据');
+    }
+
+    const rawTokens = extractTokens(payload.data);
+    if (!rawTokens.length) {
+      throw new Error('Binance API 未返回有效的代币数据');
     }
 
     const now = Date.now();
 
-    const processed: IntermediateToken[] = payload.data
-      .map((token): IntermediateToken | null => {
-        if (!token.symbol || !token.name || typeof token.listingTime !== 'number') {
+    const processed: ProcessedToken[] = rawTokens
+      .map((token): ProcessedToken | null => {
+        if (!token || !token.symbol || !token.name || typeof token.listingTime !== 'number') {
           return null;
         }
 
         const listingTime = token.listingTime;
+        if (!Number.isFinite(listingTime)) {
+          return null;
+        }
+
+        const age = now - listingTime;
+        if (age < 0 || age > THIRTY_DAYS_IN_MS) {
+          return null;
+        }
+
         const price = parseNumber(token.price);
         const priceHigh24h = parseNumber(token.priceHigh24h);
         const priceLow24h = parseNumber(token.priceLow24h);
         const volume24h = parseNumber(token.volume24h);
-        const count24h = parseNumber(token.count24h);
+        const count24h = Math.max(0, Math.trunc(parseNumber(token.count24h)));
         const percentChange24h = parseNumber(token.percentChange24h);
-
-        const volatility = calculateVolatility(priceHigh24h, priceLow24h);
-        const daysSinceListing = Math.floor((now - listingTime) / (24 * 60 * 60 * 1000));
 
         return {
           symbol: token.symbol,
           name: token.name,
-          listingTime,
           listingDate: new Date(listingTime).toISOString().slice(0, 10),
-          daysSinceListing,
-          volatility,
+          daysSinceListing: Math.max(0, Math.floor(age / DAY_IN_MS)),
+          volatility: calculateVolatility(priceHigh24h, priceLow24h),
           price,
           volume24h,
           count24h,
@@ -137,12 +165,11 @@ export async function fetchAlphaTokens(): Promise<FetchAlphaTokensResult> {
           percentChange24h
         };
       })
-      .filter((token): token is IntermediateToken => Boolean(token))
-      .filter((token) => now - token.listingTime <= THIRTY_DAYS_IN_MS)
+      .filter((token): token is ProcessedToken => Boolean(token))
       .sort((a, b) => a.volatility - b.volatility);
 
     return {
-      tokens: processed.map(({ listingTime, ...rest }) => rest),
+      tokens: processed,
       source: 'live'
     };
   } catch (error) {

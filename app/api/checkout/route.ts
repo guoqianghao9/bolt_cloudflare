@@ -18,6 +18,7 @@ function getStripeClient(): Stripe | null {
 }
 
 type CheckoutPayload = {
+  productId?: string;
   priceId?: string;
   successUrl?: string;
   cancelUrl?: string;
@@ -25,6 +26,105 @@ type CheckoutPayload = {
   walletAddress?: string;
   userId?: string;
 };
+
+async function fetchStripePrice(stripe: Stripe, priceId: string): Promise<Stripe.Price> {
+  try {
+    return await stripe.prices.retrieve(priceId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '未知错误';
+    throw new Error(`无法读取 Stripe 价格 ${priceId}：${message}`);
+  }
+}
+
+function isStripePrice(value: unknown): value is Stripe.Price {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    typeof (value as { id: unknown }).id === 'string'
+  );
+}
+
+function isMonthlyRecurringPrice(price: Stripe.Price): boolean {
+  if (!price.active) {
+    return false;
+  }
+  if (price.type !== 'recurring' || !price.recurring) {
+    return false;
+  }
+
+  const intervalCount = price.recurring.interval_count ?? 1;
+  return price.recurring.interval === 'month' && intervalCount === 1;
+}
+
+async function resolveProductPriceId(stripe: Stripe, productId: string): Promise<string> {
+  let product: Stripe.Product;
+
+  try {
+    product = await stripe.products.retrieve(productId, {
+      expand: ['default_price']
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '未知错误';
+    throw new Error(`无法读取 Stripe 产品 ${productId}：${message}`);
+  }
+
+  if (isStripePrice(product.default_price) && isMonthlyRecurringPrice(product.default_price)) {
+    return product.default_price.id;
+  }
+
+  if (typeof product.default_price === 'string') {
+    const price = await fetchStripePrice(stripe, product.default_price);
+    if (isMonthlyRecurringPrice(price)) {
+      return price.id;
+    }
+  }
+
+  try {
+    const prices = await stripe.prices.list({
+      product: productId,
+      active: true,
+      limit: 100
+    });
+
+    const monthly = prices.data.find((price) => isMonthlyRecurringPrice(price));
+    if (monthly) {
+      return monthly.id;
+    }
+
+    const recurring = prices.data.find((price) => price.active && price.type === 'recurring');
+    if (recurring) {
+      throw new Error(
+        '该 Stripe 产品存在订阅价格，但不是按月计费。请创建一个 interval 为 month 且 interval_count 为 1 的价格。'
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '未知错误';
+    throw new Error(`查询 Stripe 产品价格失败：${message}`);
+  }
+
+  throw new Error('该 Stripe 产品没有启用的按月订阅价格，请在 Stripe Dashboard 中创建一个按月收费的价格。');
+}
+
+async function resolveConfiguredPriceId(
+  stripe: Stripe,
+  candidate?: string | null
+): Promise<string> {
+  if (!candidate) {
+    throw new Error('缺少 Stripe 产品 ID。');
+  }
+
+  const normalized = candidate.trim();
+  if (!normalized) {
+    throw new Error('缺少 Stripe 产品 ID。');
+  }
+
+  if (!normalized.startsWith('prod_')) {
+    throw new Error('STRIPE_PRICE_ID 必须配置为以 prod_ 开头的 Stripe 产品 ID。');
+  }
+
+  return resolveProductPriceId(stripe, normalized);
+}
 
 export async function POST(request: NextRequest) {
   const stripe = getStripeClient();
@@ -34,16 +134,20 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json()) as CheckoutPayload;
-  const defaultPrice = process.env.STRIPE_PRICE_ID;
-  const successUrl = body.successUrl ?? process.env.STRIPE_SUCCESS_URL;
-  const cancelUrl = body.cancelUrl ?? process.env.STRIPE_CANCEL_URL;
+  const requestUrl = new URL(request.url);
+  const origin = request.headers.get('origin') ?? requestUrl.origin;
+  const successUrl =
+    body.successUrl ?? process.env.STRIPE_SUCCESS_URL ?? `${origin.replace(/\/$/, '')}/stripe/success`;
+  const cancelUrl =
+    body.cancelUrl ?? process.env.STRIPE_CANCEL_URL ?? `${origin.replace(/\/$/, '')}/stripe/cancel`;
 
-  if (!(body.priceId ?? defaultPrice)) {
-    return NextResponse.json({ error: '缺少 Stripe 价格 ID。' }, { status: 400 });
-  }
-
-  if (!successUrl || !cancelUrl) {
-    return NextResponse.json({ error: '必须设置 successUrl 与 cancelUrl。' }, { status: 400 });
+  let priceId: string;
+  try {
+    const rawProductId = body.productId ?? body.priceId ?? process.env.STRIPE_PRICE_ID;
+    priceId = await resolveConfiguredPriceId(stripe, rawProductId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '缺少 Stripe 产品 ID。';
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   try {
@@ -51,7 +155,7 @@ export async function POST(request: NextRequest) {
       mode: 'subscription',
       line_items: [
         {
-          price: body.priceId ?? defaultPrice!,
+          price: priceId,
           quantity: 1
         }
       ],

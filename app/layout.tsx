@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 import DynamicAuthProvider from '@/components/DynamicAuthProvider';
+import FloatingXButton from '@/components/FloatingXButton';
 import HeaderBar from '@/components/HeaderBar';
 
 export const metadata: Metadata = {
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <DynamicAuthProvider>
           <HeaderBar />
+          <FloatingXButton />
           <div className="app-shell">{children}</div>
         </DynamicAuthProvider>
       </body>
