@@ -32,11 +32,12 @@ async function persistUser(user: DynamicUser | null, walletAddress?: string): Pr
     return;
   }
 
-  await fetch('/api/users', {
+  const response = await fetch('/api/users', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
+    cache: 'no-store',
     body: JSON.stringify({
       userId: user.userId ?? user.id ?? resolvedWallet,
       walletAddress: resolvedWallet,
@@ -45,6 +46,22 @@ async function persistUser(user: DynamicUser | null, walletAddress?: string): Pr
       metadata: user.metadata ?? null
     })
   });
+
+  const payload = (await response.json().catch(() => null)) as
+    | { success?: boolean; error?: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error ?? `Supabase API 返回状态 ${response.status}`);
+  }
+
+  if (payload?.error) {
+    throw new Error(payload.error);
+  }
+
+  if (!payload?.success) {
+    console.warn('Supabase 用户同步响应未返回 success 标记。');
+  }
 }
 
 const ACCESS_LABELS: Record<string, string> = {

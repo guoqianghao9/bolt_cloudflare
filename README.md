@@ -44,7 +44,7 @@ cp .env.example .env.local
 | `SUPABASE_URL` | Supabase 项目的 REST URL，例如 `https://xxxx.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service_role 密钥，仅应保存在服务器端 |
 | `STRIPE_SECRET_KEY` | Stripe Secret Key（可使用测试 key） |
-| `STRIPE_PRICE_ID` | Stripe 中的价格 ID（订阅模式） |
+| `STRIPE_PRICE_ID` | Stripe 中的订阅产品 ID（必须以 `prod_` 开头，例如 `prod_RytGhHNHaATKG5`）。后端会自动解析该产品启用的按月订阅价格 |
 | `STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL` | Stripe Checkout 完成或取消时跳转的页面 |
 | `BINANCE_WS_URL` | Binance Alpha WebSocket 入口，默认 `wss://nbstream.binance.com/w3w/wsa/stream` |
 | `BINANCE_WS_BASE_STREAMS` | 额外订阅的公共频道列表（逗号分隔），默认 `came@allTokens@ticker24` |
@@ -88,7 +88,7 @@ create trigger if not exists set_user_subscriptions_updated_at
 
 ### 4. Stripe 价格与回调
 
-1. 在 Stripe Dashboard 中创建订阅产品与价格，记下 `price_xxx`。
+1. 在 Stripe Dashboard 中创建订阅产品（得到 `prod_` ID），并为其添加 interval = `month`、interval_count = `1` 的 recurring price（建议设为 Default price）。
 2. 在 Dashboard → 开发者 → Webhooks 中添加回调地址（例如 `/api/stripe/webhook`，可按需扩展本项目）。Webhook 处理程序应在支付成功后 upsert `user_subscriptions`，使 `/api/subscription-status` 能返回 `tier = 'premium'`。
 3. 将成功/取消跳转地址配置为你的站点 URL，并可带上 `session_id` 以便在成功页调用 Stripe API 确认订阅。我们在 `app/api/checkout/route.ts` 中使用 `2024-06-20` 的 API 版本，如需更旧版本请在 Stripe 后台调整默认 API 版本或在代码中修改常量。
 
@@ -158,7 +158,7 @@ public/
 
 - **Dynamic 登录后看不到成功提示？** 确认浏览器控制台无跨域错误，并检查 `NEXT_PUBLIC_DYNAMIC_ENV_ID` 是否填写正确。
 - **Supabase 未写入数据？** 检查 `user_logins` 表是否存在、`service_role` 是否拥有 upsert 权限，以及环境变量是否正确传递到服务端。
-- **Stripe 跳转报错？** 确认 `STRIPE_PRICE_ID` 与成功/取消地址可用，若在本地开发需要使用 Stripe CLI 转发回调。
+- **Stripe 跳转报错？** 确认 `STRIPE_PRICE_ID` 指向启用的订阅产品（`prod_` 前缀），且该产品至少包含一个按月收费（interval = month、interval_count = 1）的 recurring price 并保持启用或设为默认。若仍报错，请在 Stripe Dashboard 中确认成功/取消地址可用，必要时借助 Stripe CLI 进行本地调试。
 - **Binance API 访问失败？** 我们会自动切换到本地示例数据并在界面显示黄色提示。为恢复实时数据，请检查服务器的网络出口或在 Cloudflare Worker/代理中转请求。
 - **是否需要前后端分离？** 本仓库利用 Next.js 的 App Router，同一套代码即可提供页面与 API。实时 WebSocket、Supabase 与 Stripe 都在 `app/api` 中实现，只有当你需要常驻进程或多语言脚本时才需要单独部署服务。
 - **WebSocket 如何集成？** `/api/alpha-stream` 在请求到达时即时连接 Binance aggTrade 频道，返回 50 tick 的统计结果。若需持续监听并写入数据库，可将 `lib/binance-wss.ts` 的逻辑抽取到 Cloudflare Workers、Durable Object 或独立 Node 进程中运行。
