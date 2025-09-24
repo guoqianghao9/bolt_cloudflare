@@ -22,6 +22,8 @@ type ApiResponse = {
   tokens?: TokenRow[];
   generatedAt?: string;
   error?: string;
+  source?: 'live' | 'fallback';
+  warning?: string;
 };
 
 const numberFormatter = new Intl.NumberFormat('en-US', {
@@ -53,6 +55,7 @@ export default function TokenTable({ accessLevel }: { accessLevel: AccessLevel }
   const [generatedAt, setGeneratedAt] = useState<string | undefined>();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -60,6 +63,7 @@ export default function TokenTable({ accessLevel }: { accessLevel: AccessLevel }
     const load = async () => {
       setLoading(true);
       setError(null);
+      setWarning(null);
 
       try {
         const response = await fetch('/api/tokens', {
@@ -78,6 +82,9 @@ export default function TokenTable({ accessLevel }: { accessLevel: AccessLevel }
 
         setRows(payload.tokens ?? []);
         setGeneratedAt(payload.generatedAt);
+        setWarning(payload.warning ?? (payload.source === 'fallback'
+          ? '当前展示的是示例数据，请检查网络或代理以恢复实时数据。'
+          : null));
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
           console.error(err);
@@ -142,6 +149,8 @@ export default function TokenTable({ accessLevel }: { accessLevel: AccessLevel }
       {generatedAt ? (
         <p>数据更新时间：{new Date(generatedAt).toLocaleString()}</p>
       ) : null}
+
+      {warning ? <div className="locked-callout warning">{warning}</div> : null}
 
       <div className={`table-wrapper ${accessLevel === 'guest' ? 'table-blur' : ''}`}>
         <table>
