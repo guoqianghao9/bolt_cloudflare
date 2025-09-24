@@ -111,19 +111,29 @@ async function resolveConfiguredPriceId(
   candidate?: string | null
 ): Promise<string> {
   if (!candidate) {
-    throw new Error('缺少 Stripe 产品 ID。');
+    throw new Error('缺少 Stripe 价格或产品 ID。');
   }
 
   const normalized = candidate.trim();
   if (!normalized) {
-    throw new Error('缺少 Stripe 产品 ID。');
+    throw new Error('缺少 Stripe 价格或产品 ID。');
   }
 
-  if (!normalized.startsWith('prod_')) {
-    throw new Error('STRIPE_PRICE_ID 必须配置为以 prod_ 开头的 Stripe 产品 ID。');
+  if (normalized.startsWith('price_')) {
+    const price = await fetchStripePrice(stripe, normalized);
+    if (!isMonthlyRecurringPrice(price)) {
+      throw new Error(
+        '该 Stripe 价格不是启用的按月订阅价格。请确保选择 active 状态、interval = month、interval_count = 1 的 recurring price。'
+      );
+    }
+    return price.id;
   }
 
-  return resolveProductPriceId(stripe, normalized);
+  if (normalized.startsWith('prod_')) {
+    return resolveProductPriceId(stripe, normalized);
+  }
+
+  throw new Error('STRIPE_PRICE_ID 仅支持以 price_ 或 prod_ 开头的 Stripe 标识符。');
 }
 
 export async function POST(request: NextRequest) {
@@ -143,10 +153,10 @@ export async function POST(request: NextRequest) {
 
   let priceId: string;
   try {
-    const rawProductId = body.productId ?? body.priceId ?? process.env.STRIPE_PRICE_ID;
-    priceId = await resolveConfiguredPriceId(stripe, rawProductId);
+    const rawIdentifier = body.priceId ?? body.productId ?? process.env.STRIPE_PRICE_ID;
+    priceId = await resolveConfiguredPriceId(stripe, rawIdentifier);
   } catch (error) {
-    const message = error instanceof Error ? error.message : '缺少 Stripe 产品 ID。';
+    const message = error instanceof Error ? error.message : '缺少 Stripe 价格或产品 ID。';
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
