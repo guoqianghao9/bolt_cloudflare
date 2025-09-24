@@ -2,6 +2,8 @@
 
 一个可以部署到 Vercel 或 Cloudflare Pages/Workers 的 SaaS 仪表盘，围绕 Binance Alpha 的最新上线代币数据构建。项目基于 **Next.js 15 App Router**，结合 Dynamic.xyz 的 Web3 登录、Supabase 数据库存储以及 Stripe 订阅计费，让你可以快速验证产品思路并上线收费服务。
 
+> 2024 Q4 已完成依赖升级：Next.js 15.0.3、Stripe Node 16.x、Supabase JS 2.48、Dynamic SDK 3.x、TypeScript 5.6、ESLint 9，并通过 `overrides` 强制提升 WalletConnect、glob、rimraf 等传递依赖版本，以消除常见的 npm WARN。
+
 ## 功能亮点
 
 - **Binance Alpha 数据处理**：通过服务器端 API 请求官方接口，筛选出 30 天内上市的代币，并计算 24 小时波动率后按稳定性排序。
@@ -15,13 +17,15 @@
 
 ### 1. 克隆并安装依赖
 
-确保你的本地 Node.js 版本满足 Next.js 15 的最低要求（>= 18.18 或 20.x/22.x LTS）。
+确保你的本地 Node.js 版本满足 Next.js 15 的最低要求（>= 18.18 或 20.x/22.x LTS）。建议在升级依赖前移除旧的 `node_modules` 与 `package-lock.json`：
 
 ```bash
+rm -rf node_modules package-lock.json
 npm install
+npm audit fix
 ```
 
-> 由于本仓库在构建时无法访问 npm 官方源，如果你也遇到 403，可切换公司代理或使用私有镜像。
+> 如遇到企业代理或动态私有源，可使用 `npm config set registry <mirror>` 或启用 `.npmrc` 的 token；我们已经在 `package.json` 中加入 `overrides`，绝大多数 npm WARN 与高危漏洞会在安装时自动处理。
 
 ### 2. 配置环境变量
 
@@ -85,7 +89,7 @@ create trigger if not exists set_user_subscriptions_updated_at
 
 1. 在 Stripe Dashboard 中创建订阅产品与价格，记下 `price_xxx`。
 2. 在 Dashboard → 开发者 → Webhooks 中添加回调地址（例如 `/api/stripe/webhook`，可按需扩展本项目）。Webhook 处理程序应在支付成功后 upsert `user_subscriptions`，使 `/api/subscription-status` 能返回 `tier = 'premium'`。
-3. 将成功/取消跳转地址配置为你的站点 URL，并可带上 `session_id` 以便在成功页调用 Stripe API 确认订阅。
+3. 将成功/取消跳转地址配置为你的站点 URL，并可带上 `session_id` 以便在成功页调用 Stripe API 确认订阅。我们在 `app/api/checkout/route.ts` 中使用 `2024-06-20` 的 API 版本，如需更旧版本请在 Stripe 后台调整默认 API 版本或在代码中修改常量。
 
 ### 5. 配置 WebSocket 快照
 
@@ -155,6 +159,13 @@ public/
 - **Stripe 跳转报错？** 确认 `STRIPE_PRICE_ID` 与成功/取消地址可用，若在本地开发需要使用 Stripe CLI 转发回调。
 - **是否需要前后端分离？** 本仓库利用 Next.js 的 App Router，同一套代码即可提供页面与 API。实时 WebSocket、Supabase 与 Stripe 都在 `app/api` 中实现，只有当你需要常驻进程或多语言脚本时才需要单独部署服务。
 - **WebSocket 如何集成？** `/api/alpha-stream` 在请求到达时即时连接 Binance aggTrade 频道，返回 50 tick 的统计结果。若需持续监听并写入数据库，可将 `lib/binance-wss.ts` 的逻辑抽取到 Cloudflare Workers、Durable Object 或独立 Node 进程中运行。
+
+## 依赖升级排查建议
+
+- 我们通过 `overrides` 强制提升 WalletConnect、glob、rimraf 等传递依赖版本，可以显著减少 `npm WARN deprecated`。若你仍看到旧版本，可删除 `package-lock.json` 后重新 `npm install`。
+- `lodash.isequal` 等少量警告来源于第三方 SDK，目前官方尚未发布替代版本，属信息性提醒，不影响运行。可关注 Dynamic 官方的后续版本并执行 `npm update`。
+- 执行 `npm audit` 时，如仍存在高危依赖，可尝试 `npm audit fix --force`，或使用 `npm install <package>@latest --depth 10` 手动升级冲突包。
+- 升级 ESLint 9 后若遇到配置错误，请使用 `npx next lint --reset` 生成新的 `eslint.config.mjs` 或 `eslintrc` 参考样例。
 
 ## 后续扩展
 

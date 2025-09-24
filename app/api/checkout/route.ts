@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-const STRIPE_API_VERSION: Stripe.LatestApiVersion = '2023-10-16';
+const STRIPE_API_VERSION: Stripe.LatestApiVersion = '2024-06-20';
 
 function getStripeClient(): Stripe | null {
   const secret = process.env.STRIPE_SECRET_KEY;
   if (!secret) {
     return null;
   }
-  return new Stripe(secret, { apiVersion: STRIPE_API_VERSION });
+  return new Stripe(secret, {
+    apiVersion: STRIPE_API_VERSION,
+    appInfo: {
+      name: 'Alpha Volatility Radar',
+      url: 'https://github.com/bolt-cloudflare/alpha-volatility-radar'
+    }
+  });
 }
 
 type CheckoutPayload = {

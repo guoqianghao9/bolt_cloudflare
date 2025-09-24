@@ -14,23 +14,31 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@dynamic-labs/ethereum": "^1.0.0",
-    "@dynamic-labs/sdk-react-core": "^1.0.0",
-    "@supabase/supabase-js": "^2.46.0",
-    "next": "^15.0.0",
+    "@dynamic-labs/ethereum": "^3.1.2",
+    "@dynamic-labs/sdk-react-core": "^3.1.2",
+    "@supabase/supabase-js": "^2.48.0",
+    "next": "^15.0.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "stripe": "^15.6.0",
-    "ws": "^8.18.0"
+    "stripe": "^16.21.0",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
-    "@types/node": "^22.5.4",
-    "@types/react": "^18.3.4",
-    "@types/react-dom": "^18.3.1",
+    "@types/node": "^22.7.5",
+    "@types/react": "^18.3.7",
+    "@types/react-dom": "^18.3.3",
     "@types/ws": "^8.5.12",
-    "eslint": "^8.57.0",
-    "eslint-config-next": "^15.0.0",
-    "prettier": "^3.3.3",
-    "typescript": "^5.6.2"
+    "eslint": "^9.12.0",
+    "eslint-config-next": "^15.0.3",
+    "prettier": "^3.4.1",
+    "typescript": "^5.6.3"
+  },
+  "overrides": {
+    "glob": "^10.4.5",
+    "rimraf": "^5.0.7",
+    "@walletconnect/modal": "^2.12.2",
+    "@walletconnect/sign-client": "^2.12.2",
+    "@walletconnect/ethereum-provider": "^2.12.2",
+    "@walletconnect/types": "^2.12.2"
   }
 }
