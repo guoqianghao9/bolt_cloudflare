@@ -1,0 +1,6 @@
+{
+  "defaultStream": "alpha_185usdt@aggTrade",
+  "overrides": {
+    "PRAI": "alpha_185usdt@aggTrade"
+  }
+}
