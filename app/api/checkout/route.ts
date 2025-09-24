@@ -76,7 +76,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
+    const message = error instanceof Error ? error.message : '未知错误';
     console.error('创建 Stripe Checkout 会话失败', error);
-    return NextResponse.json({ error: '创建 Stripe 会话失败。' }, { status: 500 });
+    return NextResponse.json({ error: `创建 Stripe 会话失败：${message}` }, { status: 500 });
   }
 }

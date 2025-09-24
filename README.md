@@ -12,6 +12,7 @@
 - **Supabase 存储**：使用 service role key 在服务端执行 upsert 操作，方便统计用户来源与活跃度。
 - **Stripe 订阅**：内置 Checkout API，配置价格 ID 后即可引导用户完成订阅付款。
 - **WebSocket 波动率快照**：新增 `/api/alpha-stream` API，会在服务端连接 Binance 的 aggTrade 频道，计算 50 tick 标准差并在前端以图形化面板展示。
+- **离线演示模式**：当运行环境无法访问 Binance 域名时，`/api/tokens` 会自动使用 `config/sample-alpha-tokens.json` 中的示例数据，界面仍能正常渲染并给出提示，方便在受限网络中调试。
 
 ## 快速开始
 
@@ -134,6 +135,7 @@ lib/
   supabase.ts          # service role 客户端初始化
 config/
   binance-streams.json # 默认订阅频道与手动覆盖
+  sample-alpha-tokens.json # Binance API 不可达时返回的示例数据
 public/
   favicon.svg
 ```
@@ -157,6 +159,7 @@ public/
 - **Dynamic 登录后看不到成功提示？** 确认浏览器控制台无跨域错误，并检查 `NEXT_PUBLIC_DYNAMIC_ENV_ID` 是否填写正确。
 - **Supabase 未写入数据？** 检查 `user_logins` 表是否存在、`service_role` 是否拥有 upsert 权限，以及环境变量是否正确传递到服务端。
 - **Stripe 跳转报错？** 确认 `STRIPE_PRICE_ID` 与成功/取消地址可用，若在本地开发需要使用 Stripe CLI 转发回调。
+- **Binance API 访问失败？** 我们会自动切换到本地示例数据并在界面显示黄色提示。为恢复实时数据，请检查服务器的网络出口或在 Cloudflare Worker/代理中转请求。
 - **是否需要前后端分离？** 本仓库利用 Next.js 的 App Router，同一套代码即可提供页面与 API。实时 WebSocket、Supabase 与 Stripe 都在 `app/api` 中实现，只有当你需要常驻进程或多语言脚本时才需要单独部署服务。
 - **WebSocket 如何集成？** `/api/alpha-stream` 在请求到达时即时连接 Binance aggTrade 频道，返回 50 tick 的统计结果。若需持续监听并写入数据库，可将 `lib/binance-wss.ts` 的逻辑抽取到 Cloudflare Workers、Durable Object 或独立 Node 进程中运行。
 

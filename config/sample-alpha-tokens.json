@@ -1,0 +1,62 @@
+[
+  {
+    "symbol": "PRAI",
+    "name": "Prometheon AI",
+    "listingDate": "2024-09-20",
+    "volatility": 4.92,
+    "price": 0.1823,
+    "volume24h": 1250000.5,
+    "count24h": 8475,
+    "priceHigh24h": 0.194,
+    "priceLow24h": 0.176,
+    "percentChange24h": 2.38
+  },
+  {
+    "symbol": "ALPHA185",
+    "name": "Alpha 185 Index",
+    "listingDate": "2024-09-28",
+    "volatility": 7.34,
+    "price": 1.028,
+    "volume24h": 842000.12,
+    "count24h": 5921,
+    "priceHigh24h": 1.071,
+    "priceLow24h": 0.991,
+    "percentChange24h": -1.12
+  },
+  {
+    "symbol": "ZKEDGE",
+    "name": "ZK Edge",
+    "listingDate": "2024-09-15",
+    "volatility": 3.21,
+    "price": 0.5621,
+    "volume24h": 640500.67,
+    "count24h": 4380,
+    "priceHigh24h": 0.579,
+    "priceLow24h": 0.551,
+    "percentChange24h": 1.47
+  },
+  {
+    "symbol": "SOLX",
+    "name": "SolarX Labs",
+    "listingDate": "2024-09-10",
+    "volatility": 2.74,
+    "price": 2.814,
+    "volume24h": 2120500.11,
+    "count24h": 10234,
+    "priceHigh24h": 2.941,
+    "priceLow24h": 2.701,
+    "percentChange24h": 3.58
+  },
+  {
+    "symbol": "DATARUSH",
+    "name": "Data Rush",
+    "listingDate": "2024-09-05",
+    "volatility": 6.45,
+    "price": 0.0942,
+    "volume24h": 390200.44,
+    "count24h": 3219,
+    "priceHigh24h": 0.099,
+    "priceLow24h": 0.093,
+    "percentChange24h": -0.84
+  }
+]
