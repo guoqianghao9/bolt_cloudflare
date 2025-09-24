@@ -1,15 +1,30 @@
 {
-  "name": "@example/basics",
-  "type": "module",
-  "version": "0.0.1",
+  "name": "alpha-volatility-saas",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "astro": "astro"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "format": "prettier --write ."
   },
   "dependencies": {
-    "astro": "^5.2.5"
+    "@dynamic-labs/ethereum": "^1.0.0",
+    "@dynamic-labs/sdk-react-core": "^1.0.0",
+    "@supabase/supabase-js": "^2.46.0",
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "stripe": "^15.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.5",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
   }
 }
