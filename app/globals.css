@@ -16,6 +16,107 @@ body {
   background: linear-gradient(180deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
 }
 
+.app-shell {
+  min-height: 100vh;
+}
+
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(14px);
+  background: rgba(13, 17, 23, 0.85);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.top-bar__inner {
+  width: min(1200px, 95vw);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.2rem 0.75rem;
+}
+
+.top-bar__brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  color: #e0e7ff;
+}
+
+.top-bar__nav {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.top-bar__link {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  color: rgba(226, 232, 240, 0.85);
+  text-decoration: none;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.top-bar__link:hover {
+  background: rgba(99, 102, 241, 0.18);
+  color: #eef2ff;
+}
+
+.top-bar__auth {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-left: 1.5rem;
+  min-height: 2.5rem;
+}
+
+.top-bar__status {
+  font-size: 0.85rem;
+  color: rgba(226, 232, 240, 0.75);
+  white-space: nowrap;
+}
+
+.top-bar__status.warning {
+  color: #fbbf24;
+}
+
+.button.small {
+  padding: 0.65rem 1.4rem;
+  font-size: 0.95rem;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);
+}
+
+@media (max-width: 720px) {
+  .top-bar__inner {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 0.75rem;
+  }
+
+  .top-bar__nav {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .top-bar__auth {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .top-bar__status {
+    white-space: normal;
+  }
+}
+
 a {
   color: inherit;
 }
@@ -23,7 +124,7 @@ a {
 main {
   width: min(1200px, 95vw);
   margin: 0 auto;
-  padding: 3rem 0;
+  padding: 4.5rem 0 3.5rem;
 }
 
 section {
@@ -171,6 +272,20 @@ tr:last-child td {
 
 .card-body.dynamic-login {
   align-items: flex-start;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.login-instructions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+.login-instructions strong {
+  color: #c7d2fe;
 }
 
 .status-stack {

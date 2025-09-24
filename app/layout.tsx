@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 import DynamicAuthProvider from '@/components/DynamicAuthProvider';
+import HeaderBar from '@/components/HeaderBar';
 
 export const metadata: Metadata = {
   title: 'Alpha Volatility Radar',
@@ -16,7 +17,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <DynamicAuthProvider>{children}</DynamicAuthProvider>
+        <DynamicAuthProvider>
+          <HeaderBar />
+          <div className="app-shell">{children}</div>
+        </DynamicAuthProvider>
       </body>
     </html>
   );

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { DynamicWidget } from '@dynamic-labs/sdk-react-core';
 
 import { useAccessControl } from '@/hooks/useAccessControl';
 
@@ -116,7 +115,10 @@ export default function DynamicLogin() {
         <p>{resolvedLabel}</p>
       </div>
       <div className="card-body dynamic-login">
-        <DynamicWidget buttonClassName="button" />
+        <div className="login-instructions">
+          <p>请使用页面右上角的 <strong>Log in or sign up</strong> 按钮完成钱包连接。</p>
+          <p>登录后系统会自动把钱包信息写入 Supabase，并同步 Stripe 订阅状态。</p>
+        </div>
         <div className="status-stack">
           {syncState === 'syncing' ? <span>正在同步到 Supabase…</span> : null}
           {syncState === 'complete' ? <span className="badge success">登录并同步成功</span> : null}
@@ -126,7 +128,7 @@ export default function DynamicLogin() {
         </div>
       </div>
       {!isAuthenticated ? (
-        <p className="card-footer">登录后即可解锁完整的波动率表格与指标。</p>
+        <p className="card-footer">使用右上角的登录按钮后即可解锁完整的波动率表格与指标。</p>
       ) : accessLevel !== 'premium' ? (
         <p className="card-footer">完成 Stripe 订阅后，可访问高级洞察页面与自动化提醒。</p>
       ) : (
