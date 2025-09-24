@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-type TokenRow = {
+import type { AccessLevel } from '@/hooks/useAccessControl';
+
+export type TokenRow = {
   symbol: string;
   name: string;
   listingDate: string;
@@ -38,7 +40,15 @@ const percentFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2
 });
 
-export default function TokenTable() {
+function sliceRows(rows: TokenRow[], accessLevel: AccessLevel): TokenRow[] {
+  if (accessLevel === 'guest') {
+    return rows.slice(0, 5);
+  }
+
+  return rows;
+}
+
+export default function TokenTable({ accessLevel }: { accessLevel: AccessLevel }) {
   const [rows, setRows] = useState<TokenRow[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | undefined>();
   const [loading, setLoading] = useState<boolean>(false);
@@ -83,8 +93,11 @@ export default function TokenTable() {
     return () => controller.abort();
   }, []);
 
+  const visibleRows = useMemo(() => sliceRows(rows, accessLevel), [rows, accessLevel]);
+  const hiddenCount = rows.length - visibleRows.length;
+
   const metrics = useMemo(() => {
-    if (!rows.length) {
+    if (!visibleRows.length) {
       return {
         count: 0,
         avgVolatility: 0,
@@ -93,17 +106,17 @@ export default function TokenTable() {
       };
     }
 
-    const totalVolatility = rows.reduce((sum, row) => sum + row.volatility, 0);
-    const totalVolume = rows.reduce((sum, row) => sum + row.volume24h, 0);
-    const rising = rows.filter((row) => row.percentChange24h >= 0).length;
+    const totalVolatility = visibleRows.reduce((sum, row) => sum + row.volatility, 0);
+    const totalVolume = visibleRows.reduce((sum, row) => sum + row.volume24h, 0);
+    const rising = visibleRows.filter((row) => row.percentChange24h >= 0).length;
 
     return {
-      count: rows.length,
-      avgVolatility: totalVolatility / rows.length,
+      count: visibleRows.length,
+      avgVolatility: totalVolatility / visibleRows.length,
       totalVolume,
       rising
     };
-  }, [rows]);
+  }, [visibleRows]);
 
   return (
     <div>
@@ -130,7 +143,7 @@ export default function TokenTable() {
         <p>数据更新时间：{new Date(generatedAt).toLocaleString()}</p>
       ) : null}
 
-      <div className="table-wrapper">
+      <div className={`table-wrapper ${accessLevel === 'guest' ? 'table-blur' : ''}`}>
         <table>
           <thead>
             <tr>
@@ -156,8 +169,8 @@ export default function TokenTable() {
               <tr>
                 <td colSpan={11}>{error}</td>
               </tr>
-            ) : rows.length ? (
-              rows.map((row) => (
+            ) : visibleRows.length ? (
+              visibleRows.map((row) => (
                 <tr key={row.symbol}>
                   <td>{row.symbol}</td>
                   <td>{row.name}</td>
@@ -184,6 +197,18 @@ export default function TokenTable() {
           </tbody>
         </table>
       </div>
+
+      {accessLevel === 'guest' && hiddenCount > 0 ? (
+        <div className="locked-callout">
+          还有 {hiddenCount} 条代币数据已隐藏。完成 Dynamic 登录即可查看完整列表以及实时指标。
+        </div>
+      ) : null}
+
+      {accessLevel === 'member' ? (
+        <div className="locked-callout premium">
+          已解锁完整表格。升级订阅后可访问高级洞察页、智能筛选与通知配置。
+        </div>
+      ) : null}
     </div>
   );
 }

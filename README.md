@@ -1,6 +1,6 @@
 # Alpha Volatility Radar
 
-一个可以部署到 Vercel 或 Cloudflare Pages/Workers 的 SaaS 仪表盘，围绕 Binance Alpha 的最新上线代币数据构建。它结合了 Dynamic.xyz 的 Web3 登录、Supabase 数据库存储以及 Stripe 订阅计费，让你可以快速验证产品思路并上线收费服务。
+一个可以部署到 Vercel 或 Cloudflare Pages/Workers 的 SaaS 仪表盘，围绕 Binance Alpha 的最新上线代币数据构建。项目基于 **Next.js 15 App Router**，结合 Dynamic.xyz 的 Web3 登录、Supabase 数据库存储以及 Stripe 订阅计费，让你可以快速验证产品思路并上线收费服务。
 
 ## 功能亮点
 
@@ -9,10 +9,13 @@
 - **Dynamic.xyz 登录**：集成 Dynamic Widget，支持钱包一键登录；登录后的核心信息会自动写入 Supabase。
 - **Supabase 存储**：使用 service role key 在服务端执行 upsert 操作，方便统计用户来源与活跃度。
 - **Stripe 订阅**：内置 Checkout API，配置价格 ID 后即可引导用户完成订阅付款。
+- **WebSocket 波动率快照**：新增 `/api/alpha-stream` API，会在服务端连接 Binance 的 aggTrade 频道，计算 50 tick 标准差并在前端以图形化面板展示。
 
 ## 快速开始
 
 ### 1. 克隆并安装依赖
+
+确保你的本地 Node.js 版本满足 Next.js 15 的最低要求（>= 18.18 或 20.x/22.x LTS）。
 
 ```bash
 npm install
@@ -38,10 +41,15 @@ cp .env.example .env.local
 | `STRIPE_SECRET_KEY` | Stripe Secret Key（可使用测试 key） |
 | `STRIPE_PRICE_ID` | Stripe 中的价格 ID（订阅模式） |
 | `STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL` | Stripe Checkout 完成或取消时跳转的页面 |
+| `BINANCE_WS_URL` | Binance Alpha WebSocket 入口，默认 `wss://nbstream.binance.com/w3w/wsa/stream` |
+| `BINANCE_WS_BASE_STREAMS` | 额外订阅的公共频道列表（逗号分隔），默认 `came@allTokens@ticker24` |
+| `BINANCE_WS_HEADERS` | （可选）自定义 WebSocket 请求头，JSON 字符串形式 |
+
+WebSocket 频道的默认值与手动覆盖项现在收敛到 `config/binance-streams.json`，无需再通过环境变量传入。
 
 ### 3. 初始化 Supabase 表
 
-在 Supabase SQL 编辑器中执行以下脚本创建存储登录信息的数据表：
+在 Supabase SQL 编辑器中执行以下脚本，创建登录记录与订阅状态表：
 
 ```sql
 create table if not exists public.user_logins (
@@ -52,17 +60,42 @@ create table if not exists public.user_logins (
   metadata jsonb,
   last_login_at timestamptz default now()
 );
+
+create table if not exists public.user_subscriptions (
+  user_id text references public.user_logins(user_id) on delete cascade,
+  wallet_address text not null,
+  status text default 'inactive',
+  tier text default 'member',
+  current_period_end timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  constraint user_subscriptions_pkey primary key (user_id)
+);
+
+create trigger if not exists set_user_subscriptions_updated_at
+  before update on public.user_subscriptions
+  for each row execute procedure trigger_set_updated_at();
 ```
 
-如果开启了 RLS，请至少为 `service_role` 保留插入与更新权限，或创建适合的策略。
+> 若项目中尚未提供 `trigger_set_updated_at`，可以在数据库中使用 `CREATE EXTENSION IF NOT EXISTS moddatetime;` 并创建 `moddatetime(updated_at)` trigger 以自动维护更新时间。
+
+如果开启了 RLS，请至少为 `service_role` 保留插入与更新权限，或创建适合的策略。Stripe Webhook 可在订阅激活或取消时更新 `user_subscriptions` 的 `status` 与 `tier` 字段。
 
 ### 4. Stripe 价格与回调
 
 1. 在 Stripe Dashboard 中创建订阅产品与价格，记下 `price_xxx`。
-2. 在 Dashboard → 开发者 → Webhooks 中添加回调地址（例如 `/api/stripe/webhook`，可按需扩展本项目）。
-3. 将成功/取消跳转地址配置为你的站点 URL。
+2. 在 Dashboard → 开发者 → Webhooks 中添加回调地址（例如 `/api/stripe/webhook`，可按需扩展本项目）。Webhook 处理程序应在支付成功后 upsert `user_subscriptions`，使 `/api/subscription-status` 能返回 `tier = 'premium'`。
+3. 将成功/取消跳转地址配置为你的站点 URL，并可带上 `session_id` 以便在成功页调用 Stripe API 确认订阅。
 
-### 5. 启动开发服务器
+### 5. 配置 WebSocket 快照
+
+1. 打开 Binance Alpha 详情页，按 `F12` → Network → WS，可以看到实际订阅的频道名称（形如 `alpha_185usdt@aggTrade`）。
+2. 在 `config/binance-streams.json` 中设置 `defaultStream`，并可根据需要在 `overrides` 节点为特定代币写入固定频道；请求 `/api/tokens` 后你也可以基于列表动态匹配。
+3. 如果遇到握手被拒绝，可在 `BINANCE_WS_HEADERS` 中提供 `Origin`、`User-Agent` 等字段以模拟官方站点。
+
+> `/api/alpha-stream` 默认在 8 秒内等待 50 条 tick，少于窗口会返回部分数据并给出警告。部署到 Cloudflare Pages 时请选择“Node.js 兼容”模式，或在 Workers 中复用此逻辑。
+
+### 6. 启动开发服务器
 
 ```bash
 npm run dev
@@ -75,17 +108,28 @@ npm run dev
 ```
 app/
   page.tsx             # 页面入口
+  premium/page.tsx     # 订阅用户可访问的高级洞察
   api/
+    alpha-stream/route.ts # Binance WebSocket 快照 API
     tokens/route.ts    # Binance 数据处理 API
     users/route.ts     # 登录用户写入 Supabase
     checkout/route.ts  # Stripe Checkout 会话
+    subscription-status/route.ts # 查询订阅权限
 components/
+  AlphaStreamPanel.tsx # WebSocket 波动率可视化
   DynamicLogin.tsx     # Dynamic Widget 封装
   BillingPortal.tsx    # Stripe 订阅按钮
+  PremiumInsights.tsx  # 订阅用户的额外分析面板
+  DynamicAuthProvider.tsx # 全局注入 Dynamic Provider
   TokenTable.tsx       # 前端数据展示
+hooks/
+  useAccessControl.ts  # 登录与订阅状态判定
 lib/
+  binance-wss.ts       # WebSocket 快照采集逻辑
   binance.ts           # Binance 抓取与过滤逻辑
   supabase.ts          # service role 客户端初始化
+config/
+  binance-streams.json # 默认订阅频道与手动覆盖
 public/
   favicon.svg
 ```
@@ -109,11 +153,17 @@ public/
 - **Dynamic 登录后看不到成功提示？** 确认浏览器控制台无跨域错误，并检查 `NEXT_PUBLIC_DYNAMIC_ENV_ID` 是否填写正确。
 - **Supabase 未写入数据？** 检查 `user_logins` 表是否存在、`service_role` 是否拥有 upsert 权限，以及环境变量是否正确传递到服务端。
 - **Stripe 跳转报错？** 确认 `STRIPE_PRICE_ID` 与成功/取消地址可用，若在本地开发需要使用 Stripe CLI 转发回调。
+- **是否需要前后端分离？** 本仓库利用 Next.js 的 App Router，同一套代码即可提供页面与 API。实时 WebSocket、Supabase 与 Stripe 都在 `app/api` 中实现，只有当你需要常驻进程或多语言脚本时才需要单独部署服务。
+- **WebSocket 如何集成？** `/api/alpha-stream` 在请求到达时即时连接 Binance aggTrade 频道，返回 50 tick 的统计结果。若需持续监听并写入数据库，可将 `lib/binance-wss.ts` 的逻辑抽取到 Cloudflare Workers、Durable Object 或独立 Node 进程中运行。
 
 ## 后续扩展
 
 - 将 `fetchAlphaTokens` 的结果缓存在数据库或 KV 中，减少 Binance API 请求频次。
 - 集成 webhook，将 Stripe 订阅状态写回 Supabase，形成完整的用户画像。
 - 借助 Dynamic 的事件回调推送 Discord/Telegram，构建自动化通知链路。
+
+## 版本信息
+
+- 2024-10：项目已升级至 Next.js 15，使用最新的 `create-next-app@latest` 初始化配置（TypeScript `moduleResolution: "bundler"`、新的 ESLint preset 等）。
 
 欢迎根据业务需求继续扩展，祝构建顺利！

@@ -16,6 +16,8 @@ type CheckoutPayload = {
   successUrl?: string;
   cancelUrl?: string;
   customerEmail?: string;
+  walletAddress?: string;
+  userId?: string;
 };
 
 export async function POST(request: NextRequest) {
@@ -50,7 +52,20 @@ export async function POST(request: NextRequest) {
       allow_promotion_codes: true,
       success_url: successUrl,
       cancel_url: cancelUrl,
-      customer_email: body.customerEmail
+      customer_email: body.customerEmail,
+      client_reference_id: body.userId ?? body.walletAddress,
+      metadata: {
+        walletAddress: body.walletAddress ?? '',
+        userId: body.userId ?? '',
+        source: 'alpha-volatility-radar'
+      },
+      subscription_data: {
+        metadata: {
+          walletAddress: body.walletAddress ?? '',
+          userId: body.userId ?? '',
+          source: 'alpha-volatility-radar'
+        }
+      }
     });
 
     return NextResponse.json({ url: session.url });

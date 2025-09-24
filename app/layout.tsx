@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 
+import DynamicAuthProvider from '@/components/DynamicAuthProvider';
+
 export const metadata: Metadata = {
   title: 'Alpha Volatility Radar',
   description:
@@ -13,7 +15,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <DynamicAuthProvider>{children}</DynamicAuthProvider>
+      </body>
     </html>
   );
 }
